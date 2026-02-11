@@ -1,3 +1,5 @@
+import './globals.css'
+
 export const metadata = {
   title: 'OpenClaw Control Center',
   description: 'Manage your OpenClaw agents',
