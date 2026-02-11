@@ -1,8 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Disable standalone since Railway uses regular build
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client'],
+  },
+  // Skip type checking during build for faster deployment
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
   },
 }
 

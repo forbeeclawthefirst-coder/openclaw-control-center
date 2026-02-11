@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import jwt from "jsonwebtoken";
 
+export const dynamic = 'force-dynamic';
+
 // List agents
 export async function GET() {
   const agents = await prisma.agent.findMany({
