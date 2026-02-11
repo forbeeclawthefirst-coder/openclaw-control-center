@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -16,32 +16,11 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Production image
-FROM node:20-alpine AS runner
-
-WORKDIR /app
-
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
-
-# Install dependencies for production
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy Prisma schema and generate client
-COPY prisma ./prisma/
-RUN npx prisma generate
-
-# Copy built application from builder
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/start.sh ./
-COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/
-
-RUN chmod +x start.sh
+ENV NEXT_TELEMETRY_DISABLED=1
 
 EXPOSE 3000
 
-CMD ["./start.sh"]
+# Start with migrations then app
+CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]

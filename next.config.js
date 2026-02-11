@@ -1,22 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // Disable standalone since Railway uses regular build
   experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs'],
-  },
-  // Ensure proper hostname binding for Railway
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'X-DNS-Prefetch-Control',
-            value: 'on'
-          }
-        ],
-      },
-    ]
+    serverComponentsExternalPackages: ['@prisma/client'],
   },
 }
 
