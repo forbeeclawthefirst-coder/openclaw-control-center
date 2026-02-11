@@ -1,14 +1,13 @@
-// schema.prisma
-// Database schema for OpenClaw Agents Control Center
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 // User accounts for dashboard access
@@ -41,11 +40,11 @@ model Organization {
   owner       User     @relation("OrgOwner", fields: [ownerId], references: [id])
   members     OrganizationMember[]
   agents      Agent[]
-  sessions    AgentSession[]
+  agentSessions    AgentSession[]
   tasks       Task[]
   
   // Settings
-  settings    Json     @default("{}")
+  settings    String   @default("{}") // JSON as string for SQLite
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -81,8 +80,8 @@ model Agent {
   status        String   @default("offline") // online, offline, busy, error
   lastSeenAt    DateTime?
   
-  // Capabilities
-  capabilities  String[] // code, browse, shell, etc.
+  // Capabilities (stored as JSON string for SQLite)
+  capabilities  String   @default("[]")
   
   // Version info
   version       String?
@@ -93,11 +92,11 @@ model Agent {
   currentSessionId String?
   
   // Metadata
-  metadata      Json     @default("{}")
-  tags          String[]
+  metadata      String   @default("{}") // JSON as string
+  tags          String   @default("[]") // JSON array as string
   
   // Relations
-  sessions      AgentSession[]
+  agentSessions      AgentSession[]
   tasks         Task[] @relation("AssignedAgent")
   tokens        AgentToken[]
   
@@ -146,7 +145,7 @@ model AgentSession {
   
   // Context
   title       String?
-  context     Json     @default("{}") // Initial context, settings
+  context     String   @default("{}") // JSON as string
   
   // Relations
   messages    SessionMessage[]
@@ -169,12 +168,12 @@ model SessionMessage {
   role        String   // user, assistant, system
   content     String
   
-  // Tool calls (if any)
-  toolCalls   Json?    // Array of tool calls
-  toolResults Json?    // Results of tool calls
+  // Tool calls (if any) - stored as JSON string
+  toolCalls   String?  // JSON array
+  toolResults String?  // JSON
   
   // Metadata
-  metadata    Json     @default("{}")
+  metadata    String   @default("{}") // JSON as string
   
   createdAt   DateTime @default(now())
   
@@ -199,12 +198,12 @@ model Task {
   agent       Agent?   @relation("AssignedAgent", fields: [agentId], references: [id])
   
   // Requirements
-  requiredCapabilities String[]
+  requiredCapabilities String @default("[]") // JSON array
   priority    String   @default("normal") // low, normal, high, urgent
   
   // Payload and result
-  payload     Json     @default("{}")
-  result      Json?
+  payload     String   @default("{}") // JSON as string
+  result      String?  // JSON as string
   
   // Progress tracking
   progress    Int      @default(0) // 0-100
@@ -237,7 +236,7 @@ model TaskLog {
   
   level     String   @default("info") // debug, info, warn, error
   message   String
-  metadata  Json     @default("{}")
+  metadata  String   @default("{}") // JSON as string
   
   createdAt DateTime @default(now())
   
@@ -252,12 +251,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

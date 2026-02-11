@@ -1,0 +1,7 @@
+{
+  "controlCenterUrl": "https://five-flies-wear.loca.lt",
+  "agentId": "openclaw-main-instance",
+  "capabilities": ["code", "shell", "file-ops", "github", "web-search"],
+  "platform": "linux",
+  "registeredAt": "2026-02-11T13:21:00Z"
+}

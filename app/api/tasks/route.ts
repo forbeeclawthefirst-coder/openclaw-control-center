@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { agentTaskQueue } from "@/lib/queue";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,17 +17,11 @@ export async function POST(req: Request) {
   const task = await prisma.task.create({
     data: {
       type: body.type,
-      payload: body.payload || {},
-      requiredCapabilities: body.requiredCapabilities || [],
+      payload: JSON.stringify(body.payload || {}),
+      requiredCapabilities: JSON.stringify(body.requiredCapabilities || []),
       priority: body.priority || "normal",
-      orgId: body.orgId || "default"
+      orgId: "default"
     }
-  });
-  
-  // Add to queue
-  await agentTaskQueue.add(body.type, {
-    taskId: task.id,
-    ...body
   });
   
   return NextResponse.json({ task });
