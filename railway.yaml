@@ -1,0 +1,81 @@
+version: "2"
+
+services:
+  # Main web application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 3000:http
+    env:
+      - DATABASE_URL=${{Postgres.DATABASE_URL}}
+      - REDIS_URL=${{Redis.REDIS_URL}}
+      - DIRECT_URL=${{Postgres.DIRECT_URL}}
+      - NEXTAUTH_SECRET=${{secret.NEXTAUTH_SECRET}}
+      - NEXTAUTH_URL=${{RAILWAY_STATIC_URL}}
+      - WS_GATEWAY_TOKEN=${{secret.WS_GATEWAY_TOKEN}}
+      - AGENT_TOKEN_SECRET=${{secret.AGENT_TOKEN_SECRET}}
+    healthcheck:
+      path: /api/health
+      port: 3000
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      - postgres
+      - redis
+
+  # Background job worker
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm run worker
+    env:
+      - DATABASE_URL=${{Postgres.DATABASE_URL}}
+      - REDIS_URL=${{Redis.REDIS_URL}}
+      - DIRECT_URL=${{Postgres.DIRECT_URL}}
+      - WS_GATEWAY_TOKEN=${{secret.WS_GATEWAY_TOKEN}}
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      replicas: 2
+
+  # Scheduled task runner
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm run scheduler
+    env:
+      - DATABASE_URL=${{Postgres.DATABASE_URL}}
+      - REDIS_URL=${{Redis.REDIS_URL}}
+    depends_on:
+      - postgres
+      - redis
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    env:
+      - POSTGRES_DB=openclaw_control
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${{secret.POSTGRES_PASSWORD}}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+
+  # Redis for pub/sub and queue
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    ports:
+      - 6379:6379
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,281 @@
+// schema.prisma
+// Database schema for OpenClaw Agents Control Center
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User accounts for dashboard access
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  
+  // Relations
+  orgs          OrganizationMember[]
+  ownedOrgs     Organization[]       @relation("OrgOwner")
+  sessions      Session[]
+  accounts      Account[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// Organizations (multi-tenant)
+model Organization {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  
+  // Relations
+  ownerId     String
+  owner       User     @relation("OrgOwner", fields: [ownerId], references: [id])
+  members     OrganizationMember[]
+  agents      Agent[]
+  sessions    AgentSession[]
+  tasks       Task[]
+  
+  // Settings
+  settings    Json     @default("{}")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model OrganizationMember {
+  id       String @id @default(cuid())
+  orgId    String
+  userId   String
+  role     String // owner, admin, member, viewer
+  
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([orgId, userId])
+}
+
+// Agent nodes that connect to the control center
+model Agent {
+  id            String   @id @default(cuid())
+  agentId       String   @unique // External agent identifier
+  name          String
+  description   String?
+  
+  // Organization
+  orgId         String
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  
+  // Status
+  status        String   @default("offline") // online, offline, busy, error
+  lastSeenAt    DateTime?
+  
+  // Capabilities
+  capabilities  String[] // code, browse, shell, etc.
+  
+  // Version info
+  version       String?
+  platform      String?
+  
+  // Current work
+  currentTaskId String?
+  currentSessionId String?
+  
+  // Metadata
+  metadata      Json     @default("{}")
+  tags          String[]
+  
+  // Relations
+  sessions      AgentSession[]
+  tasks         Task[] @relation("AssignedAgent")
+  tokens        AgentToken[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([orgId])
+  @@index([status])
+  @@index([agentId])
+}
+
+// Authentication tokens for agents
+model AgentToken {
+  id        String   @id @default(cuid())
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  token     String   @unique
+  name      String   // e.g., "Production Worker 01"
+  
+  expiresAt DateTime?
+  lastUsedAt DateTime?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([agentId])
+  @@index([token])
+}
+
+// Agent conversation sessions
+model AgentSession {
+  id          String   @id @default(cuid())
+  
+  // Organization
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  
+  // Agent
+  agentId     String?
+  agent       Agent?   @relation(fields: [agentId], references: [id])
+  
+  // Session info
+  status      String   @default("active") // active, completed, error
+  startedAt   DateTime @default(now())
+  endedAt     DateTime?
+  
+  // Context
+  title       String?
+  context     Json     @default("{}") // Initial context, settings
+  
+  // Relations
+  messages    SessionMessage[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([orgId])
+  @@index([agentId])
+  @@index([status])
+}
+
+// Individual messages in a session
+model SessionMessage {
+  id          String   @id @default(cuid())
+  sessionId   String
+  session     AgentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  // Message content
+  role        String   // user, assistant, system
+  content     String
+  
+  // Tool calls (if any)
+  toolCalls   Json?    // Array of tool calls
+  toolResults Json?    // Results of tool calls
+  
+  // Metadata
+  metadata    Json     @default("{}")
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+// Distributed tasks
+model Task {
+  id          String   @id @default(cuid())
+  
+  // Organization
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  
+  // Task definition
+  type        String   // code-review, deploy, analyze, etc.
+  status      String   @default("pending") // pending, assigned, running, completed, failed, cancelled
+  
+  // Assignment
+  agentId     String?
+  agent       Agent?   @relation("AssignedAgent", fields: [agentId], references: [id])
+  
+  // Requirements
+  requiredCapabilities String[]
+  priority    String   @default("normal") // low, normal, high, urgent
+  
+  // Payload and result
+  payload     Json     @default("{}")
+  result      Json?
+  
+  // Progress tracking
+  progress    Int      @default(0) // 0-100
+  progressMessage String?
+  
+  // Logs
+  logs        TaskLog[]
+  
+  // Timing
+  createdAt   DateTime @default(now())
+  assignedAt  DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  timeoutAt   DateTime?
+  
+  // Error info
+  error       String?
+  
+  @@index([orgId])
+  @@index([agentId])
+  @@index([status])
+  @@index([type])
+}
+
+// Task execution logs
+model TaskLog {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  level     String   @default("info") // debug, info, warn, error
+  message   String
+  metadata  Json     @default("{}")
+  
+  createdAt DateTime @default(now())
+  
+  @@index([taskId])
+  @@index([createdAt])
+}
+
+// NextAuth.js required models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
