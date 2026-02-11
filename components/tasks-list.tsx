@@ -57,7 +57,9 @@ export default function TasksList() {
     }
   };
 
-  if (loading) return <div>Loading tasks...</div>;
+  if (loading) {
+    return <div>Loading tasks...</div>;
+  }
 
   return (
     <div>
@@ -145,7 +147,7 @@ export default function TasksList() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{task.type}</span>
-                  <span className={`px-2 py-1 rounded text-sm ${getStatusColor(task.status)}`>
+                  <span className={`px-2 py-1 rounded text-sm ${getStatusColor(task.status)}`}>
                     {task.status}
                   </span>
                   <span className="text-sm text-gray-500">
